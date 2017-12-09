@@ -1,3 +1,4 @@
+
 ///////////////////////////////////////////////////////////////////////////////
 // maxprotein.hh
 //
@@ -20,6 +21,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+using namespace std;
 
 // Simple structure for a single protein
 struct Protein {
@@ -203,9 +205,81 @@ int local_alignment(const std::string & string1,
 					std::string & matchString1, 
 					std::string & matchString2)
 {
+	int n = string1.size();
+	int m = string2.size();
+	vector<vector<int>>D(n + 1, vector<int>(m + 1));
+	vector<vector<int>>B(n + 1, vector<int>(m + 1));
+	for (int i = 0; i <= n; i++) {
+		for (int j = 0; j <= m; j++) {
+			D[i][j] = 0;
+			B[i][j] = '?';
+		}
+	}
+	for (int i = 1; i <= n; i++) {
+		for (int j = 1; j <= m; j++) {
+			int up = D[i - 1][j] + bpa.get_penalty(string1[i - 1], '*');
+			int left = D[i][j - 1] + bpa.get_penalty('*', string2[j - 1]);
+			int diag = D[i - 1][j - 1] + bpa.get_penalty(string1[i - 1], string2[j - 1]);
+			if (left > up) {
+				if (left > diag) {
+					B[i][j] = 'l';
+				}
+				else B[i][j] = 'd';
+			}
+			else {
+				if (up > diag) {
+					B[i][j] = 'u';
+				}
+				else B[i][j] = 'd';
+			}
+			D[i][j] = max(up, max(left, max(diag, 0)));
+		}
+	}
+
 	int best_score = 0;
+	int best_i = string1.size();
+	int best_j = 0;
+	for (int j = 1; j <= m; j++) {
+		if (D[best_i][j] > best_score) {
+			best_score = D[best_i][j];
+			best_j = j;
+		}
+	}
+	bool done = false;
+	int i = best_i;
+	int j = best_j;
 	matchString1 = "";
 	matchString2 = "";
+	while (!done) {
+		if (B[i][j] == 'u') {
+			matchString1 += string1[i - 1];
+			matchString2 += "*";
+			i--;
+		}
+		else if (B[i][j] == 'l') {
+			matchString1 += "*";
+			matchString2 += string2[j - 1];
+			j--;
+		}
+		else if (B[i][j] == 'd') {
+			matchString1 += string1[i - 1];
+			matchString1 += string2[j - 1];
+			i--;
+			j--;
+		}
+		else if (B[i][j] == '?') {
+			done = true;
+		}
+	}
+	int k1 = matchString1.size();
+	int k2 = matchString2.size();
+	for (int p = 0; p < k1 / 2; p++) {
+		swap(matchString1[p], matchString1[k1 - 1 - p]);
+
+	}
+	for (int p = 0; p < k2 / 2; p++) {
+		swap(matchString2[p], matchString2[k2 - 1 - p]);
+	}
 	return best_score;
 }
 
@@ -218,8 +292,20 @@ std::shared_ptr<Protein> local_alignment_best_match(
 					std::string & matchString2)
 {
 	std::shared_ptr<Protein> best_protein = nullptr;
-	matchString1 = "";
-	matchString2 = "";
+	best_protein = proteins[0];
+	int best_score = 0;
+	string m1 = "";
+	string m2 = "";
+	int m = proteins.size();
+	for (int i = 0; i < m; i++) {
+		int score = local_alignment(string1, proteins[i]->sequence, bpa, m1, m2);
+		if (score > best_score) {
+			best_score = score;
+			best_protein = proteins[i];
+			matchString1 = m1;
+			matchString2 = m2;
+		}
+	}
 
 	return best_protein;
 }
